@@ -4,6 +4,9 @@ LYNIS_PROFILE = "custom.prf"
 
 SRC_URI:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', ' file://${LYNIS_PROFILE}', '', d)}"
 
+# need /usr/bin/grep for certain lynis tests
+RDEPENDS:${PN}:append = " grep"
+
 do_install:append() {
     if ${@bb.utils.contains('DISTRO_FEATURES', 'hardening', 'true', 'false', d)}; then
         install -m 0644 ${UNPACKDIR}/${LYNIS_PROFILE} \

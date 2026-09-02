@@ -1,29 +1,50 @@
 ################################################################################
-# OpenEmbedded embedded system overrides
+# OpenEmbedded Embedded Audit Profile
 ################################################################################
 
 profile-name=OpenEmbedded Embedded Audit Profile
 
+
+################################################################################
+# Repository and package management
+################################################################################
+
 # Do not refresh distro package repositories on immutable/minimal targets
 refresh-repositories=no
 
-# Generic workstation/server checks that are not useful for this baseline
 
-# Locate database. A minimal embedded image generally doesn’t need locate
+################################################################################
+# Embedded-specific test exclusions
+################################################################################
+
+## Locate database.
+# A minimal embedded image generally doesn’t need locate.
 skip-test=FILE-6410
 
-# generic automation tooling. “No Ansible/Puppet/etc.” is not inherently a security flaw on an embedded image.
+## Generic automation tooling.
+# “No Ansible/Puppet/etc.” is not inherently a security flaw on an embedded image.
 skip-test=TOOL-5002
 
-# malware scanner. Shipping a filesystem malware scanner by default on a tiny purpose-built
+## Malware scanner.
+# Shipping a filesystem malware scanner by default on a tiny purpose-built
 # OE image is not an obviously sensible baseline requirement.
 skip-test=HRDN-7230
 
-# probably the legal banner checks BANN-7126 and BANN-7130,
-# depending on whether the profile is intended as a security-hardening profile rather than corporate compliance.
+## Legal banner checks.
+# Probably the legal banner checks BANN-7126 and BANN-7130,
+# depending on whether the profile is intended as a security-hardening profile
+# rather than corporate compliance.
 skip-test=BANN-7126
 skip-test=BANN-7130
 
-# potentially FILE-6310, but be careful: separate /var or /home can genuinely provide resilience.
-# On core-image-minimal, though, treating separate desktop/server partitions as universal embedded requirements is dubious.
+## Filesystem partitioning.
+# Potentially FILE-6310, but be careful: separate /var or /home can genuinely
+# provide resilience. On core-image-minimal, though, treating separate
+# desktop/server partitions as universal embedded requirements is dubious.
 skip-test=FILE-6310
+
+################################################################################
+# Runtime kernel hardening
+################################################################################
+
+# to be added
