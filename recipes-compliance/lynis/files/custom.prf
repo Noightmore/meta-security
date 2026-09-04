@@ -12,10 +12,10 @@ profile-name=OpenEmbedded Embedded Audit Profile
 # Do not refresh distro package repositories on immutable/minimal targets
 refresh-repositories=no
 
-
 ################################################################################
 # Embedded-specific test exclusions
 ################################################################################
+#machine-role=server # lynis does not have an embedded role, server is much better than workstation or personal
 
 ## Locate database.
 # A minimal embedded image generally doesn’t need locate.
@@ -48,3 +48,9 @@ skip-test=FILE-6310
 ################################################################################
 
 # to be added
+
+# unnecessary plugins to be disabled -- at least for now as they can cause too much overhead on embedded systems
+# definitely not testing these types of configs on a minimal embedded image for devel
+disable-plugin=docker
+disable-plugin=nginx
+disable-plugin=krb5
