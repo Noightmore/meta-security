@@ -3,9 +3,9 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 HARDENING_SYSCTL_FILES = " \
-    10-hardening-general.conf \
-    10-hardening-bpf.conf \
-    10-hardening-network.conf \
+    60-hardening-general.conf \
+    60-hardening-bpf.conf \
+    60-hardening-network.conf \
     60-hardening-filesystem.conf \
 "
 
