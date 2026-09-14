@@ -5,6 +5,8 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 HARDENING_SYSCTL_FILES = " \
     10-hardening-general.conf \
     10-hardening-bpf.conf \
+    10-hardening-network.conf \
+    60-hardening-filesystem.conf \
 "
 
 SRC_URI = "${@' '.join('file://' + f for f in d.getVar('HARDENING_SYSCTL_FILES').split())}"
