@@ -1,0 +1,122 @@
+#!/bin/sh
+
+#################################################################################
+#
+# OE custom test: legacy-password-minimum-length
+# Test : CUST-0010
+# Description : Check login.defs only when pam_pwquality is not active
+#
+
+TEST_NO="CUST-0010"
+
+Register --test-no "${TEST_NO}" \
+    --weight L \
+    --network NO \
+    --category security \
+    --description "Checking legacy password minimum length policy"
+
+if [ "${SKIPTEST}" -eq 0 ]; then
+    PAM_PASSWORD_FILE="${ROOTDIR}etc/pam.d/common-password"
+    LOGIN_DEFS="${ROOTDIR}etc/login.defs"
+
+    PAM_PWQUALITY_ACTIVE=0
+    PASS_MIN_LEN=""
+    PASSWORD_LENGTH_VALID=0
+
+    if [ -r "${PAM_PASSWORD_FILE}" ]; then
+        PAM_PWQUALITY_ACTIVE=$(${AWKBINARY} '
+            /^[[:space:]]*#/ {
+                next
+            }
+
+            $1 == "password" {
+                for (field = 2; field <= NF; field++) {
+                    if ($field ~ /(^|\/)pam_pwquality[.]so$/) {
+                        active = 1
+                    }
+                }
+            }
+
+            END {
+                print active ? 1 : 0
+            }
+        ' "${PAM_PASSWORD_FILE}")
+    fi
+
+    if [ "${PAM_PWQUALITY_ACTIVE}" -eq 1 ]; then
+        Display --indent 2 \
+            --text "- Legacy PASS_MIN_LEN policy" \
+            --result "not applicable (pam_pwquality active)" \
+            --color GREEN
+
+        LogText "Result: pam_pwquality is active; ignoring PASS_MIN_LEN in login.defs"
+        LogText "Result: password quality policy is validated by CUST-0011"
+
+        Report "password_minimum_length_source=pam_pwquality"
+
+        # No hardening points here because CUST-0011 evaluates the actual policy.
+    else
+        LogText "Test: pam_pwquality is not active; checking PASS_MIN_LEN in ${LOGIN_DEFS}"
+
+        if [ -r "${LOGIN_DEFS}" ]; then
+            PASS_MIN_LEN=$(${AWKBINARY} '
+                /^[[:space:]]*#/ {
+                    next
+                }
+
+                $1 == "PASS_MIN_LEN" {
+                    value = $2
+                }
+
+                END {
+                    print value
+                }
+            ' "${LOGIN_DEFS}")
+
+            case "${PASS_MIN_LEN}" in
+                ""|*[!0-9]*)
+                    PASSWORD_LENGTH_VALID=0
+                    ;;
+                *)
+                    if [ "${PASS_MIN_LEN}" -ge 12 ]; then
+                        PASSWORD_LENGTH_VALID=1
+                    fi
+                    ;;
+            esac
+        else
+            LogText "Result: ${LOGIN_DEFS} does not exist or is not readable"
+        fi
+
+        if [ "${PASSWORD_LENGTH_VALID}" -eq 1 ]; then
+            Display --indent 2 \
+                --text "- Legacy password minimum length" \
+                --result "${PASS_MIN_LEN}" \
+                --color GREEN
+
+            LogText "Result: PASS_MIN_LEN is configured as ${PASS_MIN_LEN}"
+            Report "password_minimum_length=${PASS_MIN_LEN}"
+
+            AddHP 2 2
+        else
+            Display --indent 2 \
+                --text "- Legacy password minimum length" \
+                --result "${PASS_MIN_LEN:-not configured}" \
+                --color YELLOW
+
+            LogText "Result: pam_pwquality is inactive and PASS_MIN_LEN is not valid"
+
+            Report "password_minimum_length=${PASS_MIN_LEN:-unknown}"
+
+            ReportSuggestion "${TEST_NO}" \
+                "Enable pam_pwquality with a minimum password length of 12"
+
+            AddHP 0 2
+        fi
+    fi
+
+    unset PAM_PASSWORD_FILE
+    unset PAM_PWQUALITY_ACTIVE
+    unset LOGIN_DEFS
+    unset PASS_MIN_LEN
+    unset PASSWORD_LENGTH_VALID
+fi

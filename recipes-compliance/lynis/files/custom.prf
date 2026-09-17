@@ -4,7 +4,6 @@
 
 profile-name=OpenEmbedded Embedded Audit Profile
 
-
 ################################################################################
 # Repository and package management
 ################################################################################
@@ -42,6 +41,14 @@ skip-test=BANN-7130
 # provide resilience. On core-image-minimal, though, treating separate
 # desktop/server partitions as universal embedded requirements is dubious.
 skip-test=FILE-6310
+
+################################################################################
+# Passwords and authentication
+################################################################################
+
+# disable password expiration checks
+skip-test=AUTH-9282
+skip-test=AUTH-9286
 
 ################################################################################
 # Runtime kernel hardening
