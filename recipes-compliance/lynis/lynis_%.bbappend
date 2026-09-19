@@ -5,11 +5,12 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 LYNIS_PROFILE = "custom.prf"
-LYNIS_CUSTOM_TEST_0010 = "tests_custom_0010"
-LYNIS_CUSTOM_TEST_0011 = "tests_custom_0011"
+LYNIS_CUSTOM_TEST_0010 = "custom-tests/cust_0010"
+LYNIS_CUSTOM_TEST_0011 = "custom-tests/cust_0011"
+LYNIS_CUSTOM_TEST_0012 = "custom-tests/cust_0012"
 
 SRC_URI:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' file://${LYNIS_PROFILE} file://${LYNIS_CUSTOM_TEST_0010} file://${LYNIS_CUSTOM_TEST_0011}', \
+    ' file://${LYNIS_PROFILE} file://${LYNIS_CUSTOM_TEST_0010} file://${LYNIS_CUSTOM_TEST_0011} file://${LYNIS_CUSTOM_TEST_0012}', \
     '', d)}"
 
 RDEPENDS:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', \
@@ -34,6 +35,9 @@ do_install:append() {
 
         printf '\n' >> "${custom_tests}"
         cat "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_0011}" >> "${custom_tests}"
+
+        printf '\n' >> "${custom_tests}"
+        cat "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_0012}" >> "${custom_tests}"
 
         printf '\n' >> "${custom_tests}"
         chmod 0644 "${custom_tests}"
