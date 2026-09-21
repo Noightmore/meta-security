@@ -33,8 +33,9 @@ skip-test=HRDN-7230
 # Probably the legal banner checks BANN-7126 and BANN-7130,
 # depending on whether the profile is intended as a security-hardening profile
 # rather than corporate compliance.
-skip-test=BANN-7126
-skip-test=BANN-7130
+# but its better to keep it
+#skip-test=BANN-7126
+#skip-test=BANN-7130
 
 ## Filesystem partitioning.
 # Potentially FILE-6310, but be careful: separate /var or /home can genuinely
