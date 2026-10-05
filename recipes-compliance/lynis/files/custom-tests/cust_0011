@@ -1,0 +1,368 @@
+#!/bin/sh
+
+################################################################################
+#
+# OE custom test: PAM password-quality policy
+# Test: CUST-0011
+#
+# Checks:
+#   1. pam_pwquality.so is installed.
+#   2. The PAM password stack is correctly ordered.
+#   3. pwquality.conf matches the policy defined below.
+#
+################################################################################
+
+CUST0011_TEST_NO="CUST-0011"
+
+################################################################################
+# Expected policy
+################################################################################
+
+# PAM stack settings
+CUST0011_EXPECTED_RETRY="3"
+CUST0011_EXPECTED_HASH_ALGORITHM="sha512"
+
+# pwquality.conf settings
+CUST0011_EXPECTED_MINLEN="12"
+CUST0011_EXPECTED_DCREDIT="0"
+CUST0011_EXPECTED_UCREDIT="0"
+CUST0011_EXPECTED_LCREDIT="0"
+CUST0011_EXPECTED_OCREDIT="0"
+CUST0011_EXPECTED_DIFOK="4"
+CUST0011_EXPECTED_MAXREPEAT="3"
+CUST0011_EXPECTED_MAXSEQUENCE="3"
+CUST0011_EXPECTED_DICTCHECK="1"
+CUST0011_EXPECTED_USERCHECK="1"
+CUST0011_EXPECTED_USERSUBSTR="4"
+CUST0011_EXPECTED_ENFORCING="1"
+CUST0011_EXPECTED_ENFORCE_FOR_ROOT="1"
+
+
+# Locate the pam_pwquality PAM module.
+CUST0011_CheckPamModule()
+{
+    for CUST0011_MODULE_FILE in \
+        "${ROOTDIR}usr/lib/security/pam_pwquality.so" \
+        "${ROOTDIR}lib/security/pam_pwquality.so" \
+        "${ROOTDIR}usr/lib64/security/pam_pwquality.so" \
+        "${ROOTDIR}lib64/security/pam_pwquality.so"
+    do
+        if [ -r "${CUST0011_MODULE_FILE}" ]; then
+            LogText "Result: PAM module found at ${CUST0011_MODULE_FILE}"
+            return 0
+        fi
+    done
+
+    LogText "Result: pam_pwquality.so was not found"
+    return 1
+}
+
+
+# Verify the required modules and their order in common-password.
+CUST0011_CheckPamStack()
+{
+    CUST0011_PAM_FILE="$1"
+
+    if [ ! -r "${CUST0011_PAM_FILE}" ]; then
+        LogText "Result: ${CUST0011_PAM_FILE} is not readable"
+        return 1
+    fi
+
+    ${AWKBINARY} \
+        -v expected_retry="retry=${CUST0011_EXPECTED_RETRY}" \
+        -v expected_hash="${CUST0011_EXPECTED_HASH_ALGORITHM}" '
+        /^[[:space:]]*#/ {
+            next
+        }
+
+        $1 == "password" &&
+        $2 == "requisite" &&
+        $3 == "pam_pwquality.so" &&
+        $4 == expected_retry &&
+        NF == 4 {
+            pwquality_line = NR
+            pwquality_count++
+        }
+
+        $1 == "password" &&
+        $2 == "[success=1" &&
+        $3 == "default=ignore]" &&
+        $4 == "pam_unix.so" &&
+        $5 == "use_authtok" &&
+        $6 == expected_hash &&
+        NF == 6 {
+            unix_line = NR
+            unix_count++
+        }
+
+        $1 == "password" &&
+        $2 == "requisite" &&
+        $3 == "pam_deny.so" &&
+        NF == 3 {
+            deny_line = NR
+            deny_count++
+        }
+
+        $1 == "password" &&
+        $2 == "required" &&
+        $3 == "pam_permit.so" &&
+        NF == 3 {
+            permit_line = NR
+            permit_count++
+        }
+
+        END {
+            valid = pwquality_count == 1 &&
+                    unix_count == 1 &&
+                    deny_count == 1 &&
+                    permit_count == 1 &&
+                    pwquality_line < unix_line &&
+                    unix_line < deny_line &&
+                    deny_line < permit_line
+
+            if (valid) {
+                exit 0
+            }
+
+            exit 1
+        }
+    ' "${CUST0011_PAM_FILE}"
+
+    if [ "$?" = "0" ]; then
+        LogText "Result: PAM password stack is correctly configured"
+        LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
+        return 0
+    fi
+
+    LogText "Result: PAM password stack is missing entries or incorrectly ordered"
+    LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
+
+    return 1
+}
+
+
+# Print the final active value of one setting from pwquality.conf.
+CUST0011_ReadPwqualitySetting()
+{
+    CUST0011_SETTING_NAME="$1"
+    CUST0011_CONFIG_FILE="$2"
+
+    ${AWKBINARY} -v wanted="${CUST0011_SETTING_NAME}" '
+        {
+            line = $0
+
+            sub(/[[:space:]]*#.*/, "", line)
+
+            separator = index(line, "=")
+
+            if (separator > 0) {
+                key = substr(line, 1, separator - 1)
+                value = substr(line, separator + 1)
+
+                sub(/^[[:space:]]+/, "", key)
+                sub(/[[:space:]]+$/, "", key)
+                sub(/^[[:space:]]+/, "", value)
+                sub(/[[:space:]]+$/, "", value)
+
+                if (key == wanted) {
+                    result = value
+                    found = 1
+                }
+            }
+        }
+
+        END {
+            if (found) {
+                print result
+            }
+        }
+    ' "${CUST0011_CONFIG_FILE}"
+}
+
+
+# Return success when enforce_for_root is enabled.
+CUST0011_CheckEnforceForRoot()
+{
+    CUST0011_CONFIG_FILE="$1"
+
+    ${AWKBINARY} '
+        {
+            line = $0
+
+            sub(/[[:space:]]*#.*/, "", line)
+
+            if (line ~ /^[[:space:]]*enforce_for_root([[:space:]]*=[[:space:]]*(1|yes|true))?[[:space:]]*$/) {
+                enabled = 1
+            }
+        }
+
+        END {
+            if (enabled) {
+                exit 0
+            }
+
+            exit 1
+        }
+    ' "${CUST0011_CONFIG_FILE}"
+}
+
+
+# Validate all configured libpwquality requirements.
+CUST0011_CheckPwqualityConfig()
+{
+    CUST0011_CONFIG_FILE="$1"
+    CUST0011_CONFIG_VALID=1
+
+    if [ ! -r "${CUST0011_CONFIG_FILE}" ]; then
+        LogText "Result: ${CUST0011_CONFIG_FILE} is not readable"
+        return 1
+    fi
+
+    for CUST0011_REQUIREMENT in \
+        "minlen=${CUST0011_EXPECTED_MINLEN}" \
+        "dcredit=${CUST0011_EXPECTED_DCREDIT}" \
+        "ucredit=${CUST0011_EXPECTED_UCREDIT}" \
+        "lcredit=${CUST0011_EXPECTED_LCREDIT}" \
+        "ocredit=${CUST0011_EXPECTED_OCREDIT}" \
+        "difok=${CUST0011_EXPECTED_DIFOK}" \
+        "maxrepeat=${CUST0011_EXPECTED_MAXREPEAT}" \
+        "maxsequence=${CUST0011_EXPECTED_MAXSEQUENCE}" \
+        "dictcheck=${CUST0011_EXPECTED_DICTCHECK}" \
+        "usercheck=${CUST0011_EXPECTED_USERCHECK}" \
+        "usersubstr=${CUST0011_EXPECTED_USERSUBSTR}" \
+        "enforcing=${CUST0011_EXPECTED_ENFORCING}"
+    do
+        CUST0011_KEY="${CUST0011_REQUIREMENT%%=*}"
+        CUST0011_EXPECTED="${CUST0011_REQUIREMENT#*=}"
+
+        CUST0011_ACTUAL=$(
+            CUST0011_ReadPwqualitySetting \
+                "${CUST0011_KEY}" \
+                "${CUST0011_CONFIG_FILE}"
+        )
+
+        if [ "${CUST0011_ACTUAL}" = "${CUST0011_EXPECTED}" ]; then
+            LogText "Result: ${CUST0011_KEY}=${CUST0011_ACTUAL}"
+        else
+            LogText "Result: ${CUST0011_KEY} expected ${CUST0011_EXPECTED}, found ${CUST0011_ACTUAL:-not configured}"
+            CUST0011_CONFIG_VALID=0
+        fi
+    done
+
+    if CUST0011_CheckEnforceForRoot "${CUST0011_CONFIG_FILE}"; then
+        CUST0011_ACTUAL_ENFORCE_FOR_ROOT=1
+    else
+        CUST0011_ACTUAL_ENFORCE_FOR_ROOT=0
+    fi
+
+    if [ "${CUST0011_ACTUAL_ENFORCE_FOR_ROOT}" = "${CUST0011_EXPECTED_ENFORCE_FOR_ROOT}" ]; then
+        LogText "Result: enforce_for_root=${CUST0011_ACTUAL_ENFORCE_FOR_ROOT}"
+    else
+        LogText "Result: enforce_for_root expected ${CUST0011_EXPECTED_ENFORCE_FOR_ROOT}, found ${CUST0011_ACTUAL_ENFORCE_FOR_ROOT}"
+        CUST0011_CONFIG_VALID=0
+    fi
+
+    [ "${CUST0011_CONFIG_VALID}" = "1" ]
+}
+
+
+# Produce a consistent Lynis result line.
+CUST0011_DisplayResult()
+{
+    CUST0011_LABEL="$1"
+    CUST0011_VALID="$2"
+    CUST0011_SUCCESS_TEXT="$3"
+    CUST0011_FAILURE_TEXT="$4"
+
+    if [ "${CUST0011_VALID}" = "1" ]; then
+        Display --indent 2 \
+            --text "${CUST0011_LABEL}" \
+            --result "${CUST0011_SUCCESS_TEXT}" \
+            --color GREEN
+    else
+        Display --indent 2 \
+            --text "${CUST0011_LABEL}" \
+            --result "${CUST0011_FAILURE_TEXT}" \
+            --color YELLOW
+    fi
+}
+
+
+# Run all checks and report the combined policy result.
+CUST0011_Main()
+{
+    CUST0011_PAM_FILE="${ROOTDIR}etc/pam.d/common-password"
+    CUST0011_PWQUALITY_FILE="${ROOTDIR}etc/security/pwquality.conf"
+
+    CUST0011_MODULE_VALID=0
+    CUST0011_STACK_VALID=0
+    CUST0011_PWQUALITY_VALID=0
+
+    CUST0011_POLICY_RESULT="minimum ${CUST0011_EXPECTED_MINLEN} characters"
+
+    LogText "Test: validating PAM and libpwquality password policy"
+
+    if CUST0011_CheckPamModule; then
+        CUST0011_MODULE_VALID=1
+    fi
+
+    if CUST0011_CheckPamStack "${CUST0011_PAM_FILE}"; then
+        CUST0011_STACK_VALID=1
+    fi
+
+    if CUST0011_CheckPwqualityConfig "${CUST0011_PWQUALITY_FILE}"; then
+        CUST0011_PWQUALITY_VALID=1
+    fi
+
+    CUST0011_DisplayResult \
+        "- pam_pwquality module" \
+        "${CUST0011_MODULE_VALID}" \
+        "installed" \
+        "not found"
+
+    CUST0011_DisplayResult \
+        "- PAM password stack" \
+        "${CUST0011_STACK_VALID}" \
+        "configured" \
+        "incorrect"
+
+    CUST0011_DisplayResult \
+        "- Password quality settings" \
+        "${CUST0011_PWQUALITY_VALID}" \
+        "${CUST0011_POLICY_RESULT}" \
+        "incorrect"
+
+    if [ "${CUST0011_MODULE_VALID}" = "1" ] &&
+       [ "${CUST0011_STACK_VALID}" = "1" ] &&
+       [ "${CUST0011_PWQUALITY_VALID}" = "1" ]; then
+        LogText "Result: PAM password quality policy is correctly configured"
+
+        Report "password_quality_policy=enabled"
+        Report "password_minimum_length=${CUST0011_EXPECTED_MINLEN}"
+        Report "password_quality_retry=${CUST0011_EXPECTED_RETRY}"
+        Report "password_hash_algorithm=${CUST0011_EXPECTED_HASH_ALGORITHM}"
+        Report "password_quality_enforce_for_root=${CUST0011_EXPECTED_ENFORCE_FOR_ROOT}"
+
+        AddHP 4 4
+    else
+        LogText "Result: PAM password quality policy is incomplete or incorrect"
+
+        Report "password_quality_policy=invalid"
+
+        ReportSuggestion "${CUST0011_TEST_NO}" \
+            "Configure pam_pwquality with retry=${CUST0011_EXPECTED_RETRY} and pwquality.conf with minlen=${CUST0011_EXPECTED_MINLEN}"
+
+        AddHP 0 4
+    fi
+}
+
+
+Register --test-no "${CUST0011_TEST_NO}" \
+    --weight L \
+    --network NO \
+    --category security \
+    --description "Checking PAM password quality policy"
+
+if [ "${SKIPTEST}" = "0" ]; then
+    CUST0011_Main
+fi

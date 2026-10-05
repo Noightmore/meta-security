@@ -1,0 +1,64 @@
+################################################################################
+# OpenEmbedded Embedded Audit Profile
+################################################################################
+
+profile-name=OpenEmbedded Embedded Audit Profile
+
+################################################################################
+# Repository and package management
+################################################################################
+
+# Do not refresh distro package repositories on immutable/minimal targets
+refresh-repositories=no
+
+################################################################################
+# Embedded-specific test exclusions
+################################################################################
+#machine-role=server # lynis does not have an embedded role, server is much better than workstation or personal
+
+## Locate database.
+# A minimal embedded image generally doesn’t need locate.
+skip-test=FILE-6410
+
+## Generic automation tooling.
+# “No Ansible/Puppet/etc.” is not inherently a security flaw on an embedded image.
+skip-test=TOOL-5002
+
+## Malware scanner.
+# Shipping a filesystem malware scanner by default on a tiny purpose-built
+# OE image is not an obviously sensible baseline requirement.
+skip-test=HRDN-7230
+
+## Legal banner checks.
+# Probably the legal banner checks BANN-7126 and BANN-7130,
+# depending on whether the profile is intended as a security-hardening profile
+# rather than corporate compliance.
+# but its better to keep it
+#skip-test=BANN-7126
+#skip-test=BANN-7130
+
+## Filesystem partitioning.
+# Potentially FILE-6310, but be careful: separate /var or /home can genuinely
+# provide resilience. On core-image-minimal, though, treating separate
+# desktop/server partitions as universal embedded requirements is dubious.
+skip-test=FILE-6310
+
+################################################################################
+# Passwords and authentication
+################################################################################
+
+# disable password expiration checks
+skip-test=AUTH-9282
+skip-test=AUTH-9286
+
+################################################################################
+# Runtime kernel hardening
+################################################################################
+
+# to be added
+
+# unnecessary plugins to be disabled -- at least for now as they can cause too much overhead on embedded systems
+# definitely not testing these types of configs on a minimal embedded image for devel
+disable-plugin=docker
+disable-plugin=nginx
+disable-plugin=krb5

@@ -1,0 +1,7 @@
+# Authentication policy with failed-login tracking
+
+auth    required                        pam_faillock.so preauth
+auth    [success=1 default=bad]         pam_unix.so
+auth    [default=die]                   pam_faillock.so authfail
+auth    sufficient                      pam_faillock.so authsucc
+auth    required                        pam_deny.so
