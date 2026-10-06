@@ -6,7 +6,7 @@
 # Test: CUST-0011
 #
 # Checks:
-#   1. pam_pwquality.so is installed.
+#   1. pam_pwquality.so and pam_pwhistory.so are installed.
 #   2. The PAM password stack is correctly ordered.
 #   3. pwquality.conf matches the policy defined below.
 #
@@ -19,11 +19,12 @@ CUST0011_TEST_NO="CUST-0011"
 ################################################################################
 
 # PAM stack settings
-CUST0011_EXPECTED_RETRY="3"
+CUST0011_EXPECTED_RETRY="@LYNIS_PASSWORD_RETRY@"
+CUST0011_EXPECTED_HISTORY="@LYNIS_PASSWORD_HISTORY@"
 CUST0011_EXPECTED_HASH_ALGORITHM="sha512"
 
 # pwquality.conf settings
-CUST0011_EXPECTED_MINLEN="12"
+CUST0011_EXPECTED_MINLEN="@LYNIS_PASSWORD_MIN_LENGTH@"
 CUST0011_EXPECTED_DCREDIT="0"
 CUST0011_EXPECTED_UCREDIT="0"
 CUST0011_EXPECTED_LCREDIT="0"
@@ -38,14 +39,16 @@ CUST0011_EXPECTED_ENFORCING="1"
 CUST0011_EXPECTED_ENFORCE_FOR_ROOT="1"
 
 
-# Locate the pam_pwquality PAM module.
-CUST0011_CheckPamModule()
+# Locate a required PAM module.
+CUST0011_FindPamModule()
 {
+    CUST0011_MODULE_NAME="$1"
+
     for CUST0011_MODULE_FILE in \
-        "${ROOTDIR}usr/lib/security/pam_pwquality.so" \
-        "${ROOTDIR}lib/security/pam_pwquality.so" \
-        "${ROOTDIR}usr/lib64/security/pam_pwquality.so" \
-        "${ROOTDIR}lib64/security/pam_pwquality.so"
+        "${ROOTDIR}usr/lib/security/${CUST0011_MODULE_NAME}" \
+        "${ROOTDIR}lib/security/${CUST0011_MODULE_NAME}" \
+        "${ROOTDIR}usr/lib64/security/${CUST0011_MODULE_NAME}" \
+        "${ROOTDIR}lib64/security/${CUST0011_MODULE_NAME}"
     do
         if [ -r "${CUST0011_MODULE_FILE}" ]; then
             LogText "Result: PAM module found at ${CUST0011_MODULE_FILE}"
@@ -53,8 +56,20 @@ CUST0011_CheckPamModule()
         fi
     done
 
-    LogText "Result: pam_pwquality.so was not found"
+    LogText "Result: ${CUST0011_MODULE_NAME} was not found"
     return 1
+}
+
+
+# Verify that all PAM modules required by the policy are installed.
+CUST0011_CheckPamModules()
+{
+    CUST0011_MODULES_VALID=1
+
+    CUST0011_FindPamModule "pam_pwquality.so" || CUST0011_MODULES_VALID=0
+    CUST0011_FindPamModule "pam_pwhistory.so" || CUST0011_MODULES_VALID=0
+
+    [ "${CUST0011_MODULES_VALID}" = "1" ]
 }
 
 
@@ -70,6 +85,7 @@ CUST0011_CheckPamStack()
 
     ${AWKBINARY} \
         -v expected_retry="retry=${CUST0011_EXPECTED_RETRY}" \
+        -v expected_history="remember=${CUST0011_EXPECTED_HISTORY}" \
         -v expected_hash="${CUST0011_EXPECTED_HASH_ALGORITHM}" '
         /^[[:space:]]*#/ {
             next
@@ -82,6 +98,29 @@ CUST0011_CheckPamStack()
         NF == 4 {
             pwquality_line = NR
             pwquality_count++
+        }
+
+        $1 == "password" &&
+        $2 == "required" &&
+        $3 == "pam_pwhistory.so" {
+            history_line = NR
+            history_count++
+            has_remember = 0
+            has_use_authtok = 0
+
+            for (field = 4; field <= NF; field++) {
+                if ($field == expected_history) {
+                    has_remember = 1
+                }
+
+                if ($field == "use_authtok") {
+                    has_use_authtok = 1
+                }
+            }
+
+            if (has_remember && has_use_authtok) {
+                valid_history_count++
+            }
         }
 
         $1 == "password" &&
@@ -113,10 +152,14 @@ CUST0011_CheckPamStack()
 
         END {
             valid = pwquality_count == 1 &&
+                    history_count == 1 &&
+                    valid_history_count == 1 &&
                     unix_count == 1 &&
                     deny_count == 1 &&
                     permit_count == 1 &&
                     pwquality_line < unix_line &&
+                    pwquality_line < history_line &&
+                    history_line < unix_line &&
                     unix_line < deny_line &&
                     deny_line < permit_line
 
@@ -130,12 +173,12 @@ CUST0011_CheckPamStack()
 
     if [ "$?" = "0" ]; then
         LogText "Result: PAM password stack is correctly configured"
-        LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
+        LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_pwhistory remember=${CUST0011_EXPECTED_HISTORY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
         return 0
     fi
 
     LogText "Result: PAM password stack is missing entries or incorrectly ordered"
-    LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
+    LogText "Expected: pam_pwquality retry=${CUST0011_EXPECTED_RETRY}, pam_pwhistory remember=${CUST0011_EXPECTED_HISTORY}, pam_unix hash=${CUST0011_EXPECTED_HASH_ALGORITHM}"
 
     return 1
 }
@@ -302,7 +345,7 @@ CUST0011_Main()
 
     LogText "Test: validating PAM and libpwquality password policy"
 
-    if CUST0011_CheckPamModule; then
+    if CUST0011_CheckPamModules; then
         CUST0011_MODULE_VALID=1
     fi
 
@@ -315,7 +358,7 @@ CUST0011_Main()
     fi
 
     CUST0011_DisplayResult \
-        "- pam_pwquality module" \
+        "- PAM password modules" \
         "${CUST0011_MODULE_VALID}" \
         "installed" \
         "not found"
@@ -340,6 +383,7 @@ CUST0011_Main()
         Report "password_quality_policy=enabled"
         Report "password_minimum_length=${CUST0011_EXPECTED_MINLEN}"
         Report "password_quality_retry=${CUST0011_EXPECTED_RETRY}"
+        Report "password_history_remember=${CUST0011_EXPECTED_HISTORY}"
         Report "password_hash_algorithm=${CUST0011_EXPECTED_HASH_ALGORITHM}"
         Report "password_quality_enforce_for_root=${CUST0011_EXPECTED_ENFORCE_FOR_ROOT}"
 
@@ -350,7 +394,7 @@ CUST0011_Main()
         Report "password_quality_policy=invalid"
 
         ReportSuggestion "${CUST0011_TEST_NO}" \
-            "Configure pam_pwquality with retry=${CUST0011_EXPECTED_RETRY} and pwquality.conf with minlen=${CUST0011_EXPECTED_MINLEN}"
+            "Configure pam_pwquality with retry=${CUST0011_EXPECTED_RETRY}, pam_pwhistory with remember=${CUST0011_EXPECTED_HISTORY}, and pwquality.conf with minlen=${CUST0011_EXPECTED_MINLEN}"
 
         AddHP 0 4
     fi

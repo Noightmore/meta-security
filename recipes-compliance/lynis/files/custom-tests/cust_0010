@@ -20,7 +20,7 @@ if [ "${SKIPTEST}" -eq 0 ]; then
     LOGIN_DEFS="${ROOTDIR}etc/login.defs"
 
     PAM_PWQUALITY_ACTIVE=0
-    PASS_MIN_LEN=""
+    PASS_MIN_LEN="@LYNIS_PASSWORD_MIN_LENGTH@"
     PASSWORD_LENGTH_VALID=0
 
     if [ -r "${PAM_PASSWORD_FILE}" ]; then

@@ -1,49 +1,51 @@
-FILES:${PN}:append = " ${sysconfdir}/lynis/${LYNIS_PROFILE}"
-
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+LYNIS_PROFILE ?= "embedded.prf"
+LYNIS_CUSTOM_TEST_DIR ?= "custom-tests"
 
-LYNIS_PROFILE = "custom.prf"
-LYNIS_CUSTOM_TEST_0010 = "custom-tests/cust_0010"
-LYNIS_CUSTOM_TEST_0011 = "custom-tests/cust_0011"
-LYNIS_CUSTOM_TEST_0012 = "custom-tests/cust_0012"
+LYNIS_PASSWORD_MIN_LENGTH ?= "12"
+LYNIS_PASSWORD_HISTORY ?= "5"
+LYNIS_PASSWORD_RETRY ?= "3"
+LYNIS_FAILLOCK_DENY ?= "30"
 
-SRC_URI:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' file://${LYNIS_PROFILE} file://${LYNIS_CUSTOM_TEST_0010} file://${LYNIS_CUSTOM_TEST_0011} file://${LYNIS_CUSTOM_TEST_0012}', \
-    '', d)}"
+SRC_URI:append = " \
+    file://${LYNIS_PROFILE} \
+    file://${LYNIS_CUSTOM_TEST_DIR} \
+"
 
-RDEPENDS:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', \
-    'hardening', ' grep gzip', '', d)}"
+# grep and gzip are used by Lynis tests.
+RDEPENDS:${PN}:append = " grep gzip"
 
 do_install:append() {
-    if ${@bb.utils.contains('DISTRO_FEATURES', 'hardening', 'true', 'false', d)}; then
-        install -d "${D}${sysconfdir}/lynis"
-        install -d "${D}${datadir}/lynis/include"
+    install -d "${D}${sysconfdir}/lynis"
+    install -d "${D}${datadir}/lynis/include"
 
-        install -m 0644 \
-            "${UNPACKDIR}/${LYNIS_PROFILE}" \
-            "${D}${sysconfdir}/lynis/${LYNIS_PROFILE}"
+    install -m 0644 \
+        "${UNPACKDIR}/${LYNIS_PROFILE}" \
+        "${D}${sysconfdir}/lynis/${LYNIS_PROFILE}"
 
-        custom_tests="${D}${datadir}/lynis/include/tests_custom"
+    custom_tests="${D}${datadir}/lynis/include/tests_custom"
 
-        # Create the file if it was not supplied by the original recipe.
-        touch "${custom_tests}"
+    touch "${custom_tests}"
+    printf '\n' >> "${custom_tests}"
+
+    for test_file in "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_DIR}/"*; do
+        [ -f "${test_file}" ] || continue
+
+        sed \
+            -e "s|@LYNIS_PASSWORD_MIN_LENGTH@|${LYNIS_PASSWORD_MIN_LENGTH}|g" \
+            -e "s|@LYNIS_PASSWORD_HISTORY@|${LYNIS_PASSWORD_HISTORY}|g" \
+            -e "s|@LYNIS_PASSWORD_RETRY@|${LYNIS_PASSWORD_RETRY}|g" \
+            -e "s|@LYNIS_FAILLOCK_DENY@|${LYNIS_FAILLOCK_DENY}|g" \
+            "${test_file}" >> "${custom_tests}"
 
         printf '\n' >> "${custom_tests}"
-        cat "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_0010}" >> "${custom_tests}"
+    done
 
-        printf '\n' >> "${custom_tests}"
-        cat "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_0011}" >> "${custom_tests}"
-
-        printf '\n' >> "${custom_tests}"
-        cat "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_0012}" >> "${custom_tests}"
-
-        printf '\n' >> "${custom_tests}"
-        chmod 0644 "${custom_tests}"
-    fi
+    chmod 0644 "${custom_tests}"
 }
 
-FILES:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' ${sysconfdir}/lynis/${LYNIS_PROFILE} ${datadir}/lynis/include/tests_custom', \
-    '', d)}"
+FILES:${PN}:append = " \
+    ${sysconfdir}/lynis/${LYNIS_PROFILE} \
+    ${datadir}/lynis/include/tests_custom \
+"
