@@ -2,14 +2,14 @@
 
 #################################################################################
 #
-# OE custom test: legacy-password-minimum-length
-# Test : CUST-0010
+# OE custom policy: legacy-password-minimum-length
+# Policy : CUST-0010
 # Description : Check login.defs only when pam_pwquality is not active
 #
 
-TEST_NO="CUST-0010"
+POLICY_NO="CUST-0010"
 
-Register --test-no "${TEST_NO}" \
+Register --test-no "${POLICY_NO}" \
     --weight L \
     --network NO \
     --category security \
@@ -107,7 +107,7 @@ if [ "${SKIPTEST}" -eq 0 ]; then
 
             Report "password_minimum_length=${PASS_MIN_LEN:-unknown}"
 
-            ReportSuggestion "${TEST_NO}" \
+            ReportSuggestion "${POLICY_NO}" \
                 "Enable pam_pwquality with a minimum password length of 12"
 
             AddHP 0 2

@@ -2,8 +2,8 @@
 
 ################################################################################
 #
-# OE custom test: PAM password-quality policy
-# Test: CUST-0011
+# OE custom policy: PAM password-quality policy
+# Policy: CUST-0011
 #
 # Checks:
 #   1. pam_pwquality.so and pam_pwhistory.so are installed.
@@ -12,7 +12,7 @@
 #
 ################################################################################
 
-CUST0011_TEST_NO="CUST-0011"
+CUST0011_POLICY_NO="CUST-0011"
 
 ################################################################################
 # Expected policy
@@ -393,7 +393,7 @@ CUST0011_Main()
 
         Report "password_quality_policy=invalid"
 
-        ReportSuggestion "${CUST0011_TEST_NO}" \
+        ReportSuggestion "${CUST0011_POLICY_NO}" \
             "Configure pam_pwquality with retry=${CUST0011_EXPECTED_RETRY}, pam_pwhistory with remember=${CUST0011_EXPECTED_HISTORY}, and pwquality.conf with minlen=${CUST0011_EXPECTED_MINLEN}"
 
         AddHP 0 4
@@ -401,7 +401,7 @@ CUST0011_Main()
 }
 
 
-Register --test-no "${CUST0011_TEST_NO}" \
+Register --test-no "${CUST0011_POLICY_NO}" \
     --weight L \
     --network NO \
     --category security \

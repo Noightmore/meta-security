@@ -2,8 +2,8 @@
 
 ################################################################################
 #
-# OE custom test: failed-authentication lockout policy
-# Test: CUST-0012
+# OE custom policy: failed-authentication lockout policy
+# Policy: CUST-0012
 #
 # Checks:
 #   1. pam_faillock.so is installed.
@@ -12,7 +12,7 @@
 #
 ################################################################################
 
-CUST0012_TEST_NO="CUST-0012"
+CUST0012_POLICY_NO="CUST-0012"
 
 ################################################################################
 # Expected policy
@@ -294,7 +294,7 @@ CUST0012_Main()
 
         Report "authentication_lockout_policy=invalid"
 
-        ReportSuggestion "${CUST0012_TEST_NO}" \
+        ReportSuggestion "${CUST0012_POLICY_NO}" \
             "Configure pam_faillock with deny=${CUST0012_EXPECTED_DENY}, fail_interval=${CUST0012_EXPECTED_FAIL_INTERVAL}, and unlock_time=${CUST0012_EXPECTED_UNLOCK_TIME}"
 
         AddHP 0 4
@@ -302,7 +302,7 @@ CUST0012_Main()
 }
 
 
-Register --test-no "${CUST0012_TEST_NO}" \
+Register --test-no "${CUST0012_POLICY_NO}" \
     --weight L \
     --network NO \
     --category security \

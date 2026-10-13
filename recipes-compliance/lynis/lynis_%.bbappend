@@ -1,51 +1,56 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-LYNIS_PROFILE ?= "embedded.prf"
-LYNIS_CUSTOM_TEST_DIR ?= "custom-tests"
+LYNIS_CUSTOM_POLICY_DIR ?= "custom-policies"
 
 LYNIS_PASSWORD_MIN_LENGTH ?= "12"
 LYNIS_PASSWORD_HISTORY ?= "5"
 LYNIS_PASSWORD_RETRY ?= "3"
 LYNIS_FAILLOCK_DENY ?= "30"
+LYNIS_PROFILE_SOURCE ?= "embedded.prf"
+LYNIS_PROFILE_NAME ?= "embedded.prf"
 
 SRC_URI:append = " \
-    file://${LYNIS_PROFILE} \
-    file://${LYNIS_CUSTOM_TEST_DIR} \
+    file://${LYNIS_PROFILE_SOURCE} \
+    file://${LYNIS_CUSTOM_POLICY_DIR} \
 "
-
-# grep and gzip are used by Lynis tests.
-RDEPENDS:${PN}:append = " grep gzip"
 
 do_install:append() {
     install -d "${D}${sysconfdir}/lynis"
     install -d "${D}${datadir}/lynis/include"
 
     install -m 0644 \
-        "${UNPACKDIR}/${LYNIS_PROFILE}" \
-        "${D}${sysconfdir}/lynis/${LYNIS_PROFILE}"
+          "${UNPACKDIR}/${LYNIS_PROFILE_SOURCE}" \
+          "${D}${sysconfdir}/lynis/${LYNIS_PROFILE_NAME}"
 
-    custom_tests="${D}${datadir}/lynis/include/tests_custom"
+    custom_policies="${D}${datadir}/lynis/include/tests_custom"
 
-    touch "${custom_tests}"
-    printf '\n' >> "${custom_tests}"
+    # Preserve the existing Lynis custom-test file, if installed.
+    # Avoid duplicate content when rebuilding.
+    if [ ! -f "${custom_policies}" ]; then
+        touch "${custom_policies}"
+    fi
 
-    for test_file in "${UNPACKDIR}/${LYNIS_CUSTOM_TEST_DIR}/"*; do
-        [ -f "${test_file}" ] || continue
+    for policy_file in "${UNPACKDIR}/${LYNIS_CUSTOM_POLICY_DIR}/"*; do
+        [ -f "${policy_file}" ] || continue
+
+        printf '\n' >> "${custom_policies}"
 
         sed \
             -e "s|@LYNIS_PASSWORD_MIN_LENGTH@|${LYNIS_PASSWORD_MIN_LENGTH}|g" \
             -e "s|@LYNIS_PASSWORD_HISTORY@|${LYNIS_PASSWORD_HISTORY}|g" \
             -e "s|@LYNIS_PASSWORD_RETRY@|${LYNIS_PASSWORD_RETRY}|g" \
             -e "s|@LYNIS_FAILLOCK_DENY@|${LYNIS_FAILLOCK_DENY}|g" \
-            "${test_file}" >> "${custom_tests}"
+            "${policy_file}" >> "${custom_policies}"
 
-        printf '\n' >> "${custom_tests}"
+        printf '\n' >> "${custom_policies}"
     done
 
-    chmod 0644 "${custom_tests}"
+    chmod 0644 "${custom_policies}"
 }
 
 FILES:${PN}:append = " \
     ${sysconfdir}/lynis/${LYNIS_PROFILE} \
     ${datadir}/lynis/include/tests_custom \
 "
+
+# lynis audit system --profile /etc/lynis/embedded.prf
