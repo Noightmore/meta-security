@@ -8,7 +8,7 @@
 # Checks:
 #   1. pam_faillock.so is installed.
 #   2. pam_faillock is correctly integrated into common-auth.
-#   3. faillock.conf matches the policy defined below.
+#   3. faillock.conf matches the configurable policy.
 #
 ################################################################################
 
@@ -16,14 +16,20 @@ CUST0012_POLICY_NO="CUST-0012"
 
 ################################################################################
 # Expected policy
+#
+# Values are substituted by the Lynis BitBake recipe during installation.
 ################################################################################
 
 CUST0012_EXPECTED_DENY="@LYNIS_FAILLOCK_DENY@"
-CUST0012_EXPECTED_FAIL_INTERVAL="900"
-CUST0012_EXPECTED_UNLOCK_TIME="900"
-CUST0012_EXPECTED_SILENT="1"
-CUST0012_EXPECTED_EVEN_DENY_ROOT="0"
+CUST0012_EXPECTED_FAIL_INTERVAL="@LYNIS_FAILLOCK_INTERVAL@"
+CUST0012_EXPECTED_UNLOCK_TIME="@LYNIS_FAILLOCK_UNLOCK_TIME@"
+CUST0012_EXPECTED_SILENT="@LYNIS_FAILLOCK_SILENT@"
+CUST0012_EXPECTED_EVEN_DENY_ROOT="@LYNIS_FAILLOCK_EVEN_DENY_ROOT@"
 
+
+################################################################################
+# Check whether pam_faillock.so is installed
+################################################################################
 
 CUST0012_CheckModule()
 {
@@ -43,6 +49,10 @@ CUST0012_CheckModule()
     return 1
 }
 
+
+################################################################################
+# Check PAM authentication stack
+################################################################################
 
 CUST0012_CheckPamStack()
 {
@@ -119,11 +129,16 @@ CUST0012_CheckPamStack()
     ' "${CUST0012_FILE}")
 
     CUST0012_STATUS="$?"
+
     LogText "Result: PAM stack: ${CUST0012_PAM_SUMMARY}"
 
     return "${CUST0012_STATUS}"
 }
 
+
+################################################################################
+# Check faillock.conf against the expected policy
+################################################################################
 
 CUST0012_CheckConfig()
 {
@@ -211,11 +226,16 @@ CUST0012_CheckConfig()
     CUST0012_STATUS="$?"
 
     LogText "Result: faillock configuration: ${CUST0012_CONFIG_SUMMARY}"
+
     LogText "Expected: deny=${CUST0012_EXPECTED_DENY}, fail_interval=${CUST0012_EXPECTED_FAIL_INTERVAL}, unlock_time=${CUST0012_EXPECTED_UNLOCK_TIME}, silent=${CUST0012_EXPECTED_SILENT}, even_deny_root=${CUST0012_EXPECTED_EVEN_DENY_ROOT}"
 
     return "${CUST0012_STATUS}"
 }
 
+
+################################################################################
+# Display individual check results
+################################################################################
 
 CUST0012_DisplayResult()
 {
@@ -232,6 +252,10 @@ CUST0012_DisplayResult()
     fi
 }
 
+
+################################################################################
+# Main policy test
+################################################################################
 
 CUST0012_Main()
 {
@@ -279,6 +303,7 @@ CUST0012_Main()
     if [ "${CUST0012_MODULE_VALID}" = "1" ] &&
        [ "${CUST0012_STACK_VALID}" = "1" ] &&
        [ "${CUST0012_CONFIG_VALID}" = "1" ]; then
+
         LogText "Result: failed-authentication lockout policy is enabled"
 
         Report "authentication_lockout_policy=enabled"
@@ -301,6 +326,10 @@ CUST0012_Main()
     fi
 }
 
+
+################################################################################
+# Register Lynis custom test
+################################################################################
 
 Register --test-no "${CUST0012_POLICY_NO}" \
     --weight L \
