@@ -1,4 +1,8 @@
 # hardening.inc
+# enables insecure features like passwordless root login, insecure development image features
+# 1 = on; 0 = off (one meaning devel mode is on, so features are not enforced)
+HARDENING_DEVEL ?= "0"
+OVERRIDES:append = "${@':hardening-enforced' if bb.utils.contains('DISTRO_FEATURES', 'hardening', True, False, d) and d.getVar('HARDENING_DEVEL') != '1' else ''}"
 
 # Additional distro features required by hardening (has to be added like that to prevent circular dependency)
 HARDENING_REQUIRED_FEATURES := "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', ' pam', '', d)}"
@@ -10,6 +14,14 @@ HARDENING_UMASK ?= "027"
 HARDENING_HOME_MODE ?= "0750"
 # Enable automatic home-directory permission hardening
 HARDENING_HOME_PERMISSIONS ?= "1"
+
+# Root account policy
+# 1 = on; 0 = off
+HARDENING_DISABLE_ROOT ?= "0"
+
+# Reject insecure development image features
+# 1 = on; 0 = off
+HARDENING_RESTRICT_IMAGE_FEATURES ?= "1"
 
 ## LYNIS hardening settings
 

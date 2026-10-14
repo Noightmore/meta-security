@@ -1,14 +1,15 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-SRC_URI:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' file://common-password-hardening file://common-auth-hardening file://faillock-hardening.conf', \
-    '', d)}"
+SRC_URI:append:hardening-enforced = " \
+    file://common-password-hardening \
+    file://common-auth-hardening \
+    file://faillock-hardening.conf \
+"
 
-RDEPENDS:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', \
-    'hardening', ' pam-plugin-faillock', '', d)}"
+RDEPENDS:${PN}:append:hardening-enforced = " pam-plugin-faillock"
 
 do_install:append() {
-    if ${@bb.utils.contains('DISTRO_FEATURES', 'hardening', 'true', 'false', d)}; then
+    if ${@bb.utils.contains('DISTRO_FEATURES', 'hardening', 'true', 'false', d)} && [ "${HARDENING_DEVEL}" != "1" ]; then
         install -d "${D}${sysconfdir}/pam.d"
         install -d "${D}${sysconfdir}/security"
 
@@ -26,14 +27,14 @@ do_install:append() {
     fi
 }
 
-FILES:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' ${sysconfdir}/pam.d/common-password \
-      ${sysconfdir}/pam.d/common-auth \
-      ${sysconfdir}/security/faillock.conf', \
-    '', d)}"
+FILES:${PN}:append:hardening-enforced = " \
+    ${sysconfdir}/pam.d/common-password \
+    ${sysconfdir}/pam.d/common-auth \
+    ${sysconfdir}/security/faillock.conf \
+"
 
-CONFFILES:${PN}:append = "${@bb.utils.contains('DISTRO_FEATURES', 'hardening', \
-    ' ${sysconfdir}/pam.d/common-password \
-      ${sysconfdir}/pam.d/common-auth \
-      ${sysconfdir}/security/faillock.conf', \
-    '', d)}"
+CONFFILES:${PN}:append:hardening-enforced = " \
+    ${sysconfdir}/pam.d/common-password \
+    ${sysconfdir}/pam.d/common-auth \
+    ${sysconfdir}/security/faillock.conf \
+"
